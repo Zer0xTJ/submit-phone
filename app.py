@@ -5,9 +5,10 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 from time import sleep
 
-ser = Service('./chromedriver')
+ser = Service('./chromedriver.exe')
 uber_url = "https://auth.uber.com/v2/"
 phone_numbers_per_proxy = 4
+number_start_index = 3  # this will start from forth number
 
 def read_file_lines(file_name):
     '''read file lines and return a list of lines'''
@@ -16,7 +17,7 @@ def read_file_lines(file_name):
 
 def read_phone_numbers():
     '''read phone numbers from file and return a list of phone numbers'''
-    return read_file_lines("numbers.txt")
+    return [f"+{p}" for p in read_file_lines("numbers.txt")]
 
 def read_proxy_list():
     '''read proxy list from file and return a list of proxies'''
@@ -36,9 +37,10 @@ def submit_phone_number(driver, phone_number):
     try:
         driver.get(uber_url)
         phone_number_input = driver.find_element(By.XPATH, "//*[@id='PHONE_NUMBER_or_EMAIL_ADDRESS']")
-        phone_number_input.send_keys(phone_number)
+        for c in phone_number:
+            phone_number_input.send_keys(c)
+            sleep(0.15)
         phone_number_input.send_keys(Keys.RETURN)
-        # driver.quit()
         return True
     except NoSuchElementException:
         return False
@@ -49,20 +51,23 @@ if __name__ == '__main__':
     phone_numbers = read_phone_numbers()
     proxy_list = read_proxy_list()
     current_proxy_index = 0
+    current_proxy = proxy_list[0]
+    driver = make_webdriver_object(current_proxy)
     # loop on phones
     for phone_index, phone_number in enumerate(phone_numbers):
         # change proxy every 4 phone numbers
         if phone_index % phone_numbers_per_proxy == 0:
             current_proxy_index += 1
+            if driver:
+                driver.quit()
+            # make webdriver object
+            driver = make_webdriver_object(current_proxy)
         # get current proxy
         current_proxy = proxy_list[current_proxy_index] if current_proxy_index < len(proxy_list) else proxy_list[0]
-        # make webdriver object
-        driver = make_webdriver_object(current_proxy)
         # submit phone number
         if(submit_phone_number(driver, phone_number)):
             print(f"phone number {phone_number} submitted successfully")
         else:
             print(f"phone number {phone_number} failed to submit")
         # wait for 5 seconds and close the webdriver
-        sleep(5)
-        driver.quit()
+        sleep(3)
